@@ -12,6 +12,7 @@ import org.litote.kmongo.*
 import org.litote.kmongo.coroutine.*
 import org.litote.kmongo.reactivestreams.KMongo
 import com.mongodb.ConnectionString
+import java.security.MessageDigest
 
 val connectionString: ConnectionString? = System.getenv("MONGODB_URI")?.let {
     ConnectionString("$it?retryWrites=false")
@@ -21,6 +22,17 @@ val client = if(connectionString != null) KMongo.createClient(connectionString).
 val database = client.getDatabase(connectionString?.database ?: "Luskin")
 val accounts = database.getCollection<Account>()
 val sessions = database.getCollection<Session>()
+
+fun String.sha256(): String {
+    return hashString(this, "SHA-256")
+}
+
+private fun hashString(input: String, algorithm: String): String {
+    return MessageDigest
+        .getInstance(algorithm)
+        .digest(input.toByteArray())
+        .fold("", { str, it -> str + "%02x".format(it) })
+}
 
 fun main() {
     val port = System.getenv("PORT")?.toInt() ?: 8080
@@ -42,12 +54,21 @@ fun main() {
         routing {
             /*
              Account
+             GET = Get account -> submit username
              POST = Create account -> submit username, password, email and create id key
-             GET =
              PATCH = Update account -> submit username, password, email and session key
              DELETE = Delete account -> submit session key
              */
             route(Account.path) {
+                get {
+                   val account = call.receive<Account>()
+                   val found: List<Account> = accounts.find(Account::username eq account.username).toList()
+                   if(found.isNotEmpty()) {
+                       call.respond(found[0])
+                   } else {
+                       call.respond(HttpStatusCode.BadRequest)
+                   }
+                }
                 post {
                     val account = call.receive<Account>()
                     val found: List<Account> = accounts.find(Account::username eq account.username).toList()
@@ -85,6 +106,33 @@ fun main() {
                     if (found[0].session == session.session) {
                         accounts.deleteOne(Account::username eq account.username)
                         call.respond(HttpStatusCode.OK)
+                    } else {
+                        call.respond(HttpStatusCode.BadRequest)
+                    }
+                }
+            }
+            /*
+             Account
+             GET = Create session -> submit username or email and password
+             POST = Create account -> submit username, password, email and create id key
+             PATCH = Update account -> submit username, password, email and session key
+             DELETE = Delete account -> submit session key
+             */
+            route(Session.path) {
+                get {
+                    val account = call.receive<Account>()
+                    var found: List<Account> = emptyList<Account>()
+                    if (account.username != "") {
+                        found = accounts.find(Account::username eq account.username).toList()
+                    } else if (account.email != "") {
+                        found = accounts.find(Account::email eq account.email).toList()
+                    }
+                    if (found.isNotEmpty()) {
+                        if (found[0].username == account.username || found[0].email == account.email) {
+                            val key = account.username.plus(account.password.plus(account.email))
+                            val session = Session(key.sha256(), account.username)
+                            sessions.insertOne(session)
+                        }
                     } else {
                         call.respond(HttpStatusCode.BadRequest)
                     }
