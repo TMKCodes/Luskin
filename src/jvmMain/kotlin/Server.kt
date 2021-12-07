@@ -1,7 +1,3 @@
-package me.tonto.application
-
-import Account
-import Session
 import io.ktor.application.*
 import io.ktor.features.*
 import io.ktor.http.*
