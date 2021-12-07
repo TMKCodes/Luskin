@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Luskin-jvm-1.0-SNAPSHOT">
+    <output-path>$PROJECT_DIR$/build/libs</output-path>
+    <root id="archive" name="Luskin-jvm-1.0-SNAPSHOT.jar">
+      <element id="module-output" name="Luskin.jvmMain" />
+    </root>
+  </artifact>
+</component>
