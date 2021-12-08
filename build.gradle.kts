@@ -1,42 +1,32 @@
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
 
-plugins {
-    kotlin("multiplatform") version "1.6.0"
-    application
-    kotlin("plugin.serialization") version "1.6.0"
-}
-group = "me.tonto"
-version = "1.0-SNAPSHOT"
-
-val kotlinVersion = "1.6.0"
+val kotlinVersion = "1.5.31"
 val serializationVersion = "1.3.0"
 val ktorVersion = "1.6.5"
 val logbackVersion = "1.2.3"
 val reactVersion = "17.0.2-pre.265-kotlin-1.5.31"
 val kmongoVersion = "4.3.0"
 
+plugins {
+    kotlin("multiplatform") version "1.5.31"
+    application //to run JVM part
+    kotlin("plugin.serialization") version "1.5.31"
+}
+
+group = "org.example"
+version = "1.0-SNAPSHOT"
 
 repositories {
-    jcenter()
     mavenCentral()
 }
 
 kotlin {
     jvm {
-        compilations.all {
-            kotlinOptions.jvmTarget = "1.8"
-        }
         withJava()
-        testRuns["test"].executionTask.configure {
-            useJUnitPlatform()
-        }
     }
-    js(LEGACY) {
-        binaries.executable()
+    js {
         browser {
-            commonWebpackConfig {
-                cssSupport.enabled = true
-            }
+            binaries.executable()
         }
     }
     sourceSets {
@@ -48,48 +38,36 @@ kotlin {
         }
         val commonTest by getting {
             dependencies {
-                implementation(kotlin("test"))
+                implementation(kotlin("test-common"))
+                implementation(kotlin("test-annotations-common"))
             }
         }
+
         val jvmMain by getting {
             dependencies {
                 implementation("io.ktor:ktor-serialization:$ktorVersion")
+                implementation("io.ktor:ktor-server-core:$ktorVersion")
                 implementation("io.ktor:ktor-server-netty:$ktorVersion")
-                implementation("io.ktor:ktor-html-builder:$ktorVersion")
-                implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:0.7.2")
                 implementation("ch.qos.logback:logback-classic:$logbackVersion")
                 implementation("org.litote.kmongo:kmongo-coroutine-serialization:$kmongoVersion")
             }
         }
-        val jvmTest by getting
+
         val jsMain by getting {
             dependencies {
-                implementation("org.jetbrains.kotlin-wrappers:kotlin-react:17.0.2-pre.206-kotlin-$ktorVersion")
-                implementation("org.jetbrains.kotlin-wrappers:kotlin-react-dom:17.0.2-pre.206-kotlin-$ktorVersion")
-                implementation("org.jetbrains.kotlin-wrappers:kotlin-styled:5.3.0-pre.206-kotlin-$ktorVersion")
                 implementation("io.ktor:ktor-client-js:$ktorVersion")
                 implementation("io.ktor:ktor-client-json:$ktorVersion")
                 implementation("io.ktor:ktor-client-serialization:$ktorVersion")
+
                 implementation("org.jetbrains.kotlin-wrappers:kotlin-react:$reactVersion")
                 implementation("org.jetbrains.kotlin-wrappers:kotlin-react-dom:$reactVersion")
             }
         }
-        val jsTest by getting
     }
 }
 
 application {
-    mainClass.set("me.tonto.application.ServerKt")
-}
-
-tasks.named<Copy>("jvmProcessResources") {
-    val jsBrowserDistribution = tasks.named("jsBrowserDistribution")
-    from(jsBrowserDistribution)
-}
-
-tasks.named<JavaExec>("run") {
-    dependsOn(tasks.named<Jar>("jvmJar"))
-    classpath(tasks.named<Jar>("jvmJar"))
+    mainClass.set("ServerKt")
 }
 
 // include JS artifacts in any JAR we generate
