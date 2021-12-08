@@ -62,7 +62,7 @@ fun main() {
             route(Account.path) {
                 get {
                    val account = call.receive<Account>()
-                   val found: List<Account> = accounts.find(Account::username eq account.username).toList()
+                   val found = accounts.find(Account::username eq account.username).toList()
                    if(found.isNotEmpty()) {
                        call.respond(found[0])
                    } else {
@@ -71,7 +71,7 @@ fun main() {
                 }
                 post {
                     val account = call.receive<Account>()
-                    val found: List<Account> = accounts.find(Account::username eq account.username).toList()
+                    val found = accounts.find(Account::username eq account.username).toList()
                     if(found.isNotEmpty()) {
                         accounts.insertOne(account)
                         call.respond(HttpStatusCode.OK)
@@ -80,10 +80,10 @@ fun main() {
                     }
                 }
                 patch {
-                    val response: Pair<Session, Account> = call.receive<Pair<Session, Account>>()
-                    val account: Account = response.second
-                    val session: Session = response.first
-                    val found: List<Session> = sessions.find(Session::username eq account.username).toList()
+                    val response = call.receive<Pair<Session, Account>>()
+                    val account = response.second
+                    val session = response.first
+                    val found = sessions.find(Session::username eq account.username).toList()
                     if (found[0].session == session.session) {
                         accounts.updateOne(
                             Account::username eq account.username,
@@ -99,10 +99,10 @@ fun main() {
                     }
                 }
                 delete {
-                    val response: Pair<Session, Account> = call.receive<Pair<Session, Account>>()
-                    val account: Account = response.second
-                    val session: Session = response.first
-                    val found: List<Session> = sessions.find(Session::username eq account.username).toList()
+                    val response = call.receive<Pair<Session, Account>>()
+                    val account = response.second
+                    val session = response.first
+                    val found = sessions.find(Session::username eq account.username).toList()
                     if (found[0].session == session.session) {
                         accounts.deleteOne(Account::username eq account.username)
                         call.respond(HttpStatusCode.OK)
@@ -112,16 +112,15 @@ fun main() {
                 }
             }
             /*
-             Account
+             Session
              GET = Create session -> submit username or email and password
-             POST = Create account -> submit username, password, email and create id key
-             PATCH = Update account -> submit username, password, email and session key
-             DELETE = Delete account -> submit session key
+             PATCH = Update session -> submit session
+             DELETE = Delete session -> submit session
              */
             route(Session.path) {
                 get {
                     val account = call.receive<Account>()
-                    var found: List<Account> = emptyList<Account>()
+                    var found = emptyList<Account>()
                     if (account.username != "") {
                         found = accounts.find(Account::username eq account.username).toList()
                     } else if (account.email != "") {
@@ -129,9 +128,37 @@ fun main() {
                     }
                     if (found.isNotEmpty()) {
                         if (found[0].username == account.username || found[0].email == account.email) {
+                            // TODO: Add time to session key
                             val key = account.username.plus(account.password.plus(account.email))
                             val session = Session(key.sha256(), account.username)
                             sessions.insertOne(session)
+                            call.respond(HttpStatusCode.OK)
+                        }
+                    } else {
+                        call.respond(HttpStatusCode.BadRequest)
+                    }
+                }
+                patch {
+                    val session = call.receive<Session>()
+                    var found = sessions.find(Session::username eq session.username).toList()
+                    if(found.isNotEmpty()) {
+                        if(found[0].session == session.session) {
+                            var account = accounts.find(Account::username eq session.username).toList()[0]
+                            if (account.username == "") {
+                                call.respond(HttpStatusCode.BadRequest)
+                            }
+                            // TODO: Add time to session key
+                            val key = account.username.plus(account.password.plus(account.email))
+                            val newsession = Session(key.sha256(), account.username)
+                            sessions.updateOne(
+                                Session::username eq session.username,
+                                set(
+                                    Session::session setTo newsession.session
+                                )
+                            )
+                            call.respond(HttpStatusCode.OK)
+                        } else {
+                            call.respond(HttpStatusCode.BadRequest)
                         }
                     } else {
                         call.respond(HttpStatusCode.BadRequest)
