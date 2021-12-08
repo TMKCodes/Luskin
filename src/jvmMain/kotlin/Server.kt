@@ -164,6 +164,11 @@ fun main() {
                         call.respond(HttpStatusCode.BadRequest)
                     }
                 }
+                delete {
+                    val session = call.receive<Session>()
+                    sessions.deleteOne(Session::username eq session.username)
+                    call.respond(HttpStatusCode.OK)
+                }
             }
             get("/") {
                 call.respondText(this::class.java.classLoader.getResource("index.html")!!.readText(), ContentType.Text.Html)
